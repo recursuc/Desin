@@ -15,12 +15,46 @@
 
             return toString.call(o).slice(8, -1).toLowerCase();
         },
+        getField = function(o, name){
+            if(!o || !name) { return ""; }
+            
+            var names = name.split(/\s*\.\s*/), i =0, len = names.length, obj = o;
+            while(i<len && (obj = obj[ names[i++] ]) != undefined);
+            if(i == len && obj !== undefined) {
+                return obj;
+            }else{
+                return "";
+            }
+        },
         Empty = function() {},
         clone = function(o) {
             var F = function() {};
             F.prototype = o || {};
 
             return new F();
+        },
+        namespace = function(){
+            var modules = {};
+
+            return function(ns, _module_) {
+                if(!ns ) {return Class.extend({}, modules); }
+                if(!_module_) { return getField(modules, ns); }
+
+                var m = modules,
+                    i = 0,
+                    aNS = ns.split(/\s*\.\s*/),
+                    len;
+
+                for (len = aNS.length - 1; i < len; i++) {
+                    m = aNS[i] in m ? m[aNS[i]] : (m[aNS[i]] = {});
+                }
+
+                if (!m[aNS[len]]) {
+                    m[aNS[len]] = _module_;
+                }
+                
+                return _module_;
+            }
         },
         Constructor = function(name, bSingle) {
             if( typeOf(name) != "string" ){
@@ -62,6 +96,8 @@
         Module, MP, id = 0;
 
     Module = Constructor();
+
+    Module.namespace = namespace(); 
 
     Module.hierarchy = ["", "self", "meta", "include", "parent", "top"];
     Module.keywords = {
@@ -283,9 +319,14 @@
                 source, name, val;
 
             //_super = this.Super //不继承父
-
-            if(sources[len - 1] === false){
+            override = sources[len - 1];
+            if(typeOf(override) == "boolean"){
                 sources.pop();
+            }else{
+                override = true;
+            }
+
+            if(override === false){
                 for(i =0, len= sources.length; i< len; i++){
                     source = sources[i];
                   
@@ -295,7 +336,7 @@
                    
                             if(typeOf(val) == "function" && typeOf(this[name]) == "function") { 
                                 //pval = name in this ? this[name] : name in _super ? _super[name] : null;
-                                this[name] =  this.bridge(name, [ val, this[name] ], 0, 2);                       
+                                this[name] = this.bridge(name, [ val, this[name] ], 0, 2);                       
                             } else { 
                                 this[name] = val;
                             }
@@ -533,6 +574,10 @@
             _constructor.prototype.constructor = _constructor;
 
             new Module(_constructor, props);
+
+            if( props.namespace ){
+                Module.namespace(props.namespace, _constructor);
+            }
             return _constructor;
         },
         setOtpions:function(opts){
@@ -542,17 +587,7 @@
 
     Class.typeOf = typeOf;
 
-    Class.getField = function(o, name){
-        if(!o || !name) { return ""; }
-        
-        var names = name.split("."), i =0, len = names.length, obj = o;
-        while(i<len && (obj = obj[ names[i++] ]) != undefined);
-        if(i == len && obj != undefined) {
-            return obj;
-        }else{
-            return "";
-        }
-    };
+    Class.getField = getField; 
 
     Class.clone = function (o) {
         var duplicate, type = typeOf(o);
@@ -726,24 +761,4 @@
     exports.Class = Class;
     exports.Module = Module;
     
-})(window)
-
-
-(function(context){
-    if (!context.MODULES) {
-        context.MODULES = function(ns, _module_) {
-            if (!_module_) return context.MODULES[ns];
-            var m = context.MODULES,
-                i = 0,
-                aNS = ns.split(/\s*\.\s*/),
-                len = aNS.length - 1;
-            for (; i < len; i++) {
-                m = aNS[i] in m ? m[aNS[i]] : (m[aNS[i]] = {});
-            }
-            if (!m[aNS[len]]) {
-                m[aNS[len]] = _module_;
-            }
-            return _module_;
-        };
-    }
 })(window);
